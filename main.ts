@@ -6,14 +6,14 @@ const STARTING_SOC = 0.8,
   EFFICIENCY_LOSS = 0.9;
 
 type UnitOfPower = {
-  time: number;
+  time: string;
   power: number;
-  soc: number;
 };
-type PowerUsageInput = Pick<UnitOfPower, "time" | "power">;
 
 // Read from input file and store rows into array for processing
-const powerOverTimeRows: Array<PowerUsageInput> = [];
+// After the file stream has completed reading the file, it will execute `main`
+// and perform the calculations for each row.
+const powerOverTimeRows: Array<UnitOfPower> = [];
 fs.createReadStream("power_over_time.csv")
   .pipe(csv())
   .on("data", (row) =>
@@ -24,7 +24,7 @@ fs.createReadStream("power_over_time.csv")
   )
   .on("close", () => main());
 
-function calculateSoc(hour: number, power: number, currentSoc: number): number {
+function calculateSoc(power: number, currentSoc: number): number {
   // If no power is requested/provisioned, we know the state of charge will remain unchanged.
   if (power === 0) return currentSoc;
   // True if negative power (charging), false if positive power (discharging)
@@ -42,6 +42,7 @@ function calculateChargingSoc(power: number, currentSoc: number): number {
   // Add the KWhs being charged to the battery
   const kilowattHoursInBatteryAfterCharge =
     currentKilowattHoursInBattery + Math.abs(powerCharged);
+  // Convert back to SOC percentage
   return kilowattHoursInBatteryAfterCharge / BATTERY_CAPACITY;
 }
 
@@ -53,6 +54,7 @@ function calculateDischargeSoc(power: number, currentSoc: number): number {
   // Subtract the KWhs discharged from the battery
   const kilowattHoursInBatteryAfterDischarge =
     currentKilowattHoursInBattery - powerDischarged;
+  // Convert back to SOC percentage
   return kilowattHoursInBatteryAfterDischarge / BATTERY_CAPACITY;
 }
 
@@ -60,7 +62,7 @@ function main() {
   let soc: number = STARTING_SOC;
   console.log("Time,Power,SOC");
   powerOverTimeRows.forEach((row) => {
-    soc = calculateSoc(row.time, row.power, soc);
+    soc = calculateSoc(row.power, soc);
     console.log(`${row.time},${row.power},${soc.toFixed(2)}`);
   });
 }
